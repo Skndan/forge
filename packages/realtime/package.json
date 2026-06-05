@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@forge/types": "workspace:*"
+    "@forge/types": "workspace:*",
+    "ioredis": "^5.11.1",
+    "jose": "^6.2.3",
+    "postgres": "^3.4.9"
   }
 }

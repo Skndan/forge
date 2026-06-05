@@ -162,6 +162,53 @@ export interface WebhookCreateRequest {
   name: string;
   url: string;
   events: string[];
+  secret?: string;
+}
+
+// ── Realtime ──────────────────────────────────────────────────
+
+export interface RealtimeSubscription {
+  id: string;
+  tenant_id: string;
+  table: string;
+  filter?: Record<string, unknown>;
+  row_id?: string;
+  created_at: string;
+}
+
+export interface RealtimeMessage {
+  table: string;
+  op: 'INSERT' | 'UPDATE' | 'DELETE';
+  id: string;
+  tenant_id: string;
+  payload?: Record<string, unknown>;
+}
+
+// ── Bucket ────────────────────────────────────────────────────
+
+export interface Bucket {
+  id: string;
+  tenant_id: string;
+  name: string;
+  public: boolean;
+  allowed_mime_types?: string[];
+  max_file_size_bytes?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Scheduler ─────────────────────────────────────────────────
+
+export interface ScheduledFunction {
+  id: string;
+  tenant_id: string;
+  function_id: string;
+  cron_expression: string;
+  is_active: boolean;
+  last_run_at?: string;
+  next_run_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ── Error Codes ──────────────────────────────────────────────
