@@ -1,0 +1,235 @@
+# Forge — Docker Compose Stack
+# v0.1 — Foundation
+
+version: "3.9"
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ── PostgreSQL 16 ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: forge-postgres
+    environment:
+      POSTGRES_DB: forge
+      POSTGRES_USER: forge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./packages/database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forge -d forge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Keycloak ───────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: forge-keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/forge
+      KC_DB_USERNAME: forge
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?err}
+      KC_HOSTNAME: localhost
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?err}
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ./packages/auth/keycloak:/opt/keycloak/data/import:ro
+    command: ["start-dev", "--import-realm"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | head -n 1 | grep -q 200",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Gateway (Bun + Fastify) ────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: packages/gateway/Dockerfile
+    container_name: forge-gateway
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
+      JWKS_URL: ${JWKS_URL:-http://keycloak:8080/realms/forge/protocol/openid-connect/certs}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/forge}
+      ADMIN_SERVICE_TOKEN: ${ADMIN_SERVICE_TOKEN:?err}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+    ports:
+      - "${GATEWAY_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Realtime (WebSocket) ───────────────────────────────────────
+  realtime:
+    build:
+      context: .
+      dockerfile: packages/realtime/Dockerfile
+    container_name: forge-realtime
+    environment:
+      PORT: 3001
+      POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
+      JWKS_URL: ${JWKS_URL:-http://keycloak:8080/realms/forge/protocol/openid-connect/certs}
+    ports:
+      - "${REALTIME_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Function Runner (Bun) ──────────────────────────────────────
+  function-runner:
+    build:
+      context: .
+      dockerfile: packages/function-runner/Dockerfile
+    container_name: forge-function-runner
+    environment:
+      PORT: 3002
+      POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
+    ports:
+      - "${FUNCTION_RUNNER_PORT:-3002}:3002"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Webhook Worker (Bun) ───────────────────────────────────────
+  worker-webhook:
+    build:
+      context: .
+      dockerfile: packages/worker-webhook/Dockerfile
+    container_name: forge-worker-webhook
+    environment:
+      POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── RustFS (S3-compatible storage) ─────────────────────────────
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: forge-rustfs
+    environment:
+      RUSTFS_DATA_DIR: /data
+      RUSTFS_BIND: 0.0.0.0:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?err}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?err}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      RUSTFS_BROWSER: "on"
+    ports:
+      - "${RUSTFS_PORT:-9000}:9000"
+      - "${RUSTFS_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - rustfs_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Valkey (Redis-compatible, for pub/sub + caching) ───────────
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: forge-valkey
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Admin Dashboard (Next.js) ──────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    container_name: forge-dashboard
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_GATEWAY_URL: ${GATEWAY_URL:-http://localhost:3000}
+      NEXT_PUBLIC_KEYCLOAK_URL: ${KEYCLOAK_URL:-http://localhost:8080}
+      NEXT_PUBLIC_KEYCLOAK_REALM: forge
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: forge-dashboard
+    ports:
+      - "${DASHBOARD_PORT:-3003}:3003"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3003/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      - gateway
+    logging: *default-logging
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+    driver: local
+  rustfs_data:
+    driver: local
