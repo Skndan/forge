@@ -1,0 +1,16 @@
+{
+  "name": "@forge/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0"
+  }
+}
