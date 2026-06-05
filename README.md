@@ -60,31 +60,138 @@
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+| Tool | Version | Install |
+|---|---|---|
+| Node.js | >= 20 | [nodejs.org](https://nodejs.org/) |
+| pnpm | >= 9 | `npm i -g pnpm` |
+| Bun | >= 1.1 | `curl -fsSL https://bun.sh/install \| bash` |
+| Docker | >= 24 | [docker.com](https://www.docker.com/) |
+| Docker Compose | >= 2.24 | Included with Docker Desktop |
+
+### Setup
+
 ```bash
 git clone https://github.com/Skndan/forge.git
 cd forge
-
-# Install dependencies
 pnpm install
-
-# Copy environment config
 cp .env.example .env
+```
 
-# Start infrastructure (Postgres, Keycloak, RustFS, Valkey)
-docker compose up -d
+Edit `.env` and set these required values:
+- `POSTGRES_PASSWORD` — database password
+- `KEYCLOAK_ADMIN_PASSWORD` — Keycloak admin password
+- `ADMIN_SERVICE_TOKEN` — token for admin dashboard (any random string)
+- `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` — storage credentials
 
-# Run all services in dev mode (hot-reload)
+### Run (Development)
+
+```bash
+# Start infrastructure (Postgres + Keycloak + RustFS + Valkey)
+docker compose up -d postgres keycloak rustfs valkey
+
+# Start all services in dev mode with hot-reload
 pnpm dev
 ```
 
-- **Gateway API:** http://localhost:3000
-- **Admin Dashboard:** http://localhost:3003
-- **Keycloak Admin:** http://localhost:8080 (admin:changeme)
-- **Healthcheck:** http://localhost:3000/v1/health
+### Run (Production)
 
-> **Prerequisites:** Node.js >= 20, pnpm >= 9, Bun >= 1.1, Docker >= 24
+```bash
+# Build everything
+docker compose build
 
-📖 See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for detailed local setup, Makefile commands, testing, and troubleshooting.
+# Start the full stack
+docker compose up -d
+```
+
+### Service Endpoints
+
+| Service | URL | Notes |
+|---|---|---|
+| **Gateway API** | http://localhost:3000 | Main API |
+| **Keycloak** | http://localhost:8080 | Admin: `admin` / your password |
+| **PostgreSQL** | `localhost:5432` | Database: `forge` / `forge` |
+| **RustFS Console** | http://localhost:9001 | Storage browser |
+| **Valkey** | `localhost:6379` | Redis-compatible |
+| **Realtime WS** | `ws://localhost:3001` | WebSocket |
+| **Dashboard** | http://localhost:3003 | Admin UI |
+| **Healthcheck** | http://localhost:3000/v1/health | API status |
+
+---
+
+## 🧪 Testing
+
+### Run all tests
+
+```bash
+pnpm test
+```
+
+### Run tests for a specific package
+
+```bash
+# Gateway
+pnpm --filter @forge/gateway test
+
+# Realtime
+pnpm --filter @forge/realtime test
+
+# Storage
+pnpm --filter @forge/storage test
+
+# Workers
+pnpm --filter @forge/worker-webhook test
+pnpm --filter @forge/worker-scheduler test
+pnpm --filter @forge/worker-audit test
+
+# Dashboard
+pnpm --filter @forge/dashboard test
+```
+
+### End-to-end test
+
+```bash
+# Ensure all services are running first
+./scripts/e2e-test.sh
+```
+
+### Watch mode (development)
+
+```bash
+pnpm --filter @forge/gateway test -- --watch
+```
+
+### Makefile (alternative)
+
+```bash
+make test         # all tests
+make test-e2e     # e2e tests
+make test-gateway # gateway tests
+make lint         # lint check
+make typecheck    # TypeScript check
+```
+
+---
+
+## 💻 Local Development Workflow
+
+```bash
+# Terminal 1: Docker services
+make up
+
+# Terminal 2: Services with hot-reload
+make dev
+
+# Terminal 3: Tests in watch mode
+make test-watch
+
+# Before committing
+make lint
+make typecheck
+```
+
+> For complete details on every command, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ---
 
