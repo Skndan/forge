@@ -1,0 +1,324 @@
+{
+  "id": "forge",
+  "realm": "forge",
+  "displayName": "Forge",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "verifyEmail": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "accessCodeLifespan": 60,
+  "ssoSessionMaxLifespan": 86400,
+  "ssoSessionIdleTimeout": 1800,
+  "offlineSessionMaxLifespan": 518400,
+
+  "defaultRoles": ["default-roles-forge"],
+
+  "requiredCredentials": ["password"],
+
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@forge.local",
+      "firstName": "Forge",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-forge", "admin"],
+      "clientRoles": {
+        "forge-api": ["admin"]
+      }
+    },
+    {
+      "username": "user1",
+      "email": "user1@forge.local",
+      "firstName": "Forge",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "user123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-forge", "user"],
+      "clientRoles": {
+        "forge-api": ["user"]
+      }
+    }
+  ],
+
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Administrator role",
+        "composite": false,
+        "clientRole": false,
+        "attributes": {}
+      },
+      {
+        "name": "user",
+        "description": "Standard user role",
+        "composite": false,
+        "clientRole": false,
+        "attributes": {}
+      },
+      {
+        "name": "default-roles-forge",
+        "description": "Default realm role",
+        "composite": true,
+        "composites": {
+          "realm": ["user"]
+        },
+        "clientRole": false,
+        "attributes": {}
+      }
+    ],
+    "client": {
+      "forge-api": [
+        {
+          "name": "admin",
+          "description": "API admin role",
+          "composite": false,
+          "clientRole": true
+        },
+        {
+          "name": "user",
+          "description": "API user role",
+          "composite": false,
+          "clientRole": true
+        }
+      ],
+      "realm-management": [
+        {
+          "name": "realm-admin",
+          "description": "Realm admin",
+          "composite": true,
+          "clientRole": true
+        }
+      ]
+    }
+  },
+
+  "clients": [
+    {
+      "clientId": "forge-api",
+      "name": "Forge API",
+      "description": "Confidential backend client for the Forge Gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "forge-api-secret-change-me",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "defaultRoles": ["user"],
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "jsonType.label": "String",
+            "multivalued": false
+          }
+        },
+        {
+          "name": "plan",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "plan",
+            "claim.name": "plan",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "jsonType.label": "String",
+            "multivalued": false
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "realm.role.prefix": "",
+            "claim.name": "roles",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "multivalued": true
+          }
+        },
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "client_roles",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "multivalued": true,
+            "client.id": "forge-api"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "forge-dashboard",
+      "name": "Forge Dashboard",
+      "description": "Public SPA client for the admin dashboard",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:3003/*"],
+      "webOrigins": ["http://localhost:3003"],
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "jsonType.label": "String",
+            "multivalued": false
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "realm.role.prefix": "",
+            "claim.name": "roles",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "multivalued": true
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "forge-flutter",
+      "name": "Forge Flutter SDK",
+      "description": "Public mobile client for Flutter apps",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["com.forge.app://callback"],
+      "webOrigins": [],
+      "protocolMappers": [
+        {
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "claim.name": "tenant_id",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "jsonType.label": "String",
+            "multivalued": false
+          }
+        },
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "realm.role.prefix": "",
+            "claim.name": "roles",
+            "access.token.claim": true,
+            "id.token.claim": true,
+            "userinfo.token.claim": true,
+            "multivalued": true
+          }
+        }
+      ]
+    }
+  ],
+
+  "authenticationFlows": [
+    {
+      "alias": "browser",
+      "description": "browser based authentication",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": true,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "requirement": "ALTERNATIVE",
+          "priority": 0,
+          "userSetupAllowed": false,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "auth-spnego",
+          "requirement": "DISABLED",
+          "priority": 1,
+          "userSetupAllowed": false,
+          "autheticatorFlow": false
+        },
+        {
+          "authenticator": "auth-username-password-form",
+          "requirement": "REQUIRED",
+          "priority": 2,
+          "userSetupAllowed": false,
+          "autheticatorFlow": false
+        },
+        {
+          "requirement": "REQUIRED",
+          "priority": 3,
+          "userSetupAllowed": false,
+          "autheticatorFlow": true,
+          "flowAlias": "browser-forms"
+        }
+      ]
+    }
+  ]
+}
