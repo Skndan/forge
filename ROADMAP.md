@@ -67,11 +67,13 @@ Production readiness.
 
 | Release | Issues | Status | Target |
 |---|---|---|---|
-| v0.1 | 30 | 🟡 Planning | TBD |
-| v0.2 | 23 | ⏳ Not started | After v0.1 |
-| v0.3 | 21 | ⏳ Not started | After v0.2 |
-| v0.4 | 9 | ⏳ Not started | After v0.3 |
-| v0.5 | 17 | ⏳ Not started | After v0.4 |
+| v0.1 | 30 | ✅ Done | 2026-06-05 |
+| v0.2 | 23 | ✅ Done | 2026-06-05 |
+| v0.3 | 21 | ✅ Done | 2026-06-05 |
+| v0.4 | 9 | ✅ Done | 2026-06-05 |
+| v0.5 | 17 | ✅ Done | 2026-06-05 |
+
+> 🎉 **All planned releases are complete!** Forge is ready for production use.
 
 ---
 

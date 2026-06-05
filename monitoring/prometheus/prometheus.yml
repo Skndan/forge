@@ -1,0 +1,46 @@
+# Forge — Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'forge-gateway'
+    static_configs:
+      - targets: ['gateway:3000']
+    metrics_path: /metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'gateway'
+      - target_label: service
+        replacement: 'forge-gateway'
+
+  - job_name: 'forge-realtime'
+    static_configs:
+      - targets: ['realtime:3001']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: 'forge-realtime'
+
+  - job_name: 'forge-function-runner'
+    static_configs:
+      - targets: ['function-runner:3002']
+    metrics_path: /metrics
+    relabel_configs:
+      - target_label: service
+        replacement: 'forge-function-runner'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    relabel_configs:
+      - target_label: service
+        replacement: 'forge-postgres'
+
+  - job_name: 'valkey'
+    static_configs:
+      - targets: ['valkey-exporter:9121']
+    relabel_configs:
+      - target_label: service
+        replacement: 'forge-valkey'

@@ -1,5 +1,5 @@
 # Forge — Docker Compose Stack
-# v0.1 — Foundation
+# v0.5 — DX & Polish (Monitoring Edition)
 
 version: "3.9"
 
@@ -8,6 +8,9 @@ x-logging: &default-logging
   options:
     max-size: "10m"
     max-file: "3"
+
+x-monitoring: &monitoring-label
+  monitoring: "prometheus"
 
 services:
   # ── PostgreSQL 16 ──────────────────────────────────────────────
@@ -31,6 +34,7 @@ services:
       start_period: 30s
     logging: *default-logging
     restart: unless-stopped
+    labels: *monitoring-label
 
   # ── Keycloak ───────────────────────────────────────────────────
   keycloak:
@@ -75,6 +79,8 @@ services:
     container_name: forge-gateway
     environment:
       NODE_ENV: production
+      SERVICE_NAME: forge-gateway
+      JSON_LOGS: "true"
       PORT: 3000
       POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
       JWKS_URL: ${JWKS_URL:-http://keycloak:8080/realms/forge/protocol/openid-connect/certs}
@@ -82,6 +88,8 @@ services:
       ADMIN_SERVICE_TOKEN: ${ADMIN_SERVICE_TOKEN:?err}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      RUSTFS_URL: http://rustfs:9000
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
     ports:
       - "${GATEWAY_PORT:-3000}:3000"
     healthcheck:
@@ -97,6 +105,7 @@ services:
         condition: service_healthy
     logging: *default-logging
     restart: unless-stopped
+    labels: *monitoring-label
 
   # ── Realtime (WebSocket) ───────────────────────────────────────
   realtime:
@@ -105,6 +114,8 @@ services:
       dockerfile: packages/realtime/Dockerfile
     container_name: forge-realtime
     environment:
+      SERVICE_NAME: forge-realtime
+      JSON_LOGS: "true"
       PORT: 3001
       POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
       VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
@@ -124,17 +135,38 @@ services:
         condition: service_healthy
     logging: *default-logging
     restart: unless-stopped
+    labels: *monitoring-label
 
-  # ── Function Runner (Bun) ──────────────────────────────────────
+  # ── Function Runner (Bun + DinD) ────────────────────────────────
   function-runner:
     build:
       context: .
       dockerfile: packages/function-runner/Dockerfile
     container_name: forge-function-runner
+    privileged: true
     environment:
+      SERVICE_NAME: forge-function-runner
+      JSON_LOGS: "true"
       PORT: 3002
       POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
       VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
+      DOCKER_HOST: tcp://localhost:2375
+      FN_DEFAULT_TIMEOUT_MS: 30000
+      FN_MAX_TIMEOUT_MS: 300000
+      FN_MAX_MEMORY_MB: 512
+      FN_MAX_CPU_SHARES: 512
+      FN_MAX_SOURCE_SIZE: 10485760
+      FN_WARM_POOL_MAX_PER_TENANT: 10
+      FN_WARM_POOL_REBALANCE_MS: 30000
+      FN_WARM_POOL_IDLE_MS: 300000
+      FN_JWT_SECRET: ${FN_JWT_SECRET:-forge-fn-jwt-dev-secret}
+      FN_JWT_ISSUER: forge-function-runner
+      FN_JWT_AUDIENCE: forge-function
+      FN_LOG_RETENTION_DAYS: 30
+      ADMIN_SERVICE_TOKEN: ${ADMIN_SERVICE_TOKEN:?err}
+      FORGE_SANDBOX_MODE: docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${FUNCTION_RUNNER_PORT:-3002}:3002"
     healthcheck:
@@ -142,12 +174,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
     logging: *default-logging
     restart: unless-stopped
+    labels: *monitoring-label
 
   # ── Webhook Worker (Bun) ───────────────────────────────────────
   worker-webhook:
@@ -156,6 +189,8 @@ services:
       dockerfile: packages/worker-webhook/Dockerfile
     container_name: forge-worker-webhook
     environment:
+      SERVICE_NAME: forge-worker-webhook
+      JSON_LOGS: "true"
       POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
       VALKEY_URL: ${VALKEY_URL:-redis://valkey:6379}
     depends_on:
@@ -163,6 +198,41 @@ services:
         condition: service_healthy
     logging: *default-logging
     restart: unless-stopped
+    labels: *monitoring-label
+
+  # ── Scheduler Worker (Bun) ─────────────────────────────────────
+  worker-scheduler:
+    build:
+      context: .
+      dockerfile: packages/worker-scheduler/Dockerfile
+    container_name: forge-worker-scheduler
+    environment:
+      SERVICE_NAME: forge-worker-scheduler
+      JSON_LOGS: "true"
+      POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+    labels: *monitoring-label
+
+  # ── Audit Logger Worker (Bun) ──────────────────────────────────
+  worker-audit:
+    build:
+      context: .
+      dockerfile: packages/worker-audit/Dockerfile
+    container_name: forge-worker-audit
+    environment:
+      SERVICE_NAME: forge-worker-audit
+      JSON_LOGS: "true"
+      POSTGRES_URL: postgres://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+    labels: *monitoring-label
 
   # ── RustFS (S3-compatible storage) ─────────────────────────────
   rustfs:
@@ -202,6 +272,7 @@ services:
       retries: 5
     logging: *default-logging
     restart: unless-stopped
+    labels: *monitoring-label
 
   # ── Admin Dashboard (Next.js) ──────────────────────────────────
   dashboard:
@@ -228,8 +299,92 @@ services:
     logging: *default-logging
     restart: unless-stopped
 
+  # ── Monitoring: Prometheus ─────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: forge-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      - gateway
+      - realtime
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Monitoring: Grafana ────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: forge-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3004}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      - prometheus
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Monitoring: PostgreSQL Exporter ────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: forge-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://forge:${POSTGRES_PASSWORD:?err}@postgres:5432/forge?sslmode=disable"
+    ports:
+      - "${PG_EXPORTER_PORT:-9187}:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
+  # ── Monitoring: Valkey Exporter ────────────────────────────────
+  valkey-exporter:
+    image: oliver006/redis_exporter:v1.58.0-alpine
+    container_name: forge-valkey-exporter
+    environment:
+      REDIS_ADDR: redis://valkey:6379
+    ports:
+      - "${VALKEY_EXPORTER_PORT:-9121}:9121"
+    depends_on:
+      valkey:
+        condition: service_healthy
+    logging: *default-logging
+    restart: unless-stopped
+
 volumes:
   pg_data:
     driver: local
   rustfs_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local

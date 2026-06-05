@@ -1,0 +1,24 @@
+# Forge — Grafana Datasource Configuration
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    uid: prometheus
+
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: forge
+    user: forge
+    secureJsonData:
+      password: forge_dev_password_change_me
+    jsonData:
+      sslmode: disable
+    editable: false
+    uid: postgres

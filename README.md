@@ -2,8 +2,10 @@
 
 > **Open-source Supabase alternative** — Self-hostable BaaS with PostgreSQL, realtime subscriptions, file storage, serverless functions, and an admin dashboard.
 
-![Forge](https://img.shields.io/badge/status-v0.1--Foundation-blue)
-[![GitHub Repo](https://img.shields.io/github/stars/Skndan/forge?style=social)](https://github.com/Skndan/forge)
+[![Build Status](https://github.com/Skndan/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/Skndan/forge/actions)
+[![Docker Build](https://github.com/Skndan/forge/actions/workflows/docker-build.yml/badge.svg)](https://github.com/Skndan/forge/actions)
+[![GitHub Release](https://img.shields.io/github/v/release/Skndan/forge)](https://github.com/Skndan/forge/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Project Board](https://img.shields.io/badge/board-view-2ea44f)](https://github.com/orgs/Skndan/projects/2)
 
 ---
@@ -12,16 +14,77 @@
 
 | Feature | Status | Release |
 |---|---|---|
-| **PostgreSQL 16** with RLS, pg_notify, pgmq | ✅ Done | v0.1 |
-| **Auth** via Keycloak (PKCE, JWT mappers) | ✅ Done | v0.1 |
-| **API Gateway** (Bun + Fastify, JWT verify) | ✅ Done | v0.1 |
-| **Realtime subscriptions** (WebSocket + Valkey) | ✅ Done | v0.2 |
-| **File storage** (RustFS S3-compatible) | ✅ Done | v0.2 |
-| **Background workers** (Webhook, Scheduler, Audit) | ✅ Done | v0.2 |
-| **Admin Dashboard** (Next.js) | ⏳ Planned | v0.3 |
-| **Flutter SDK** (Mobile client) | ⏳ Planned | v0.3 |
-| **Function Runner** (DinD secure sandbox) | ⏳ Planned | v0.4 |
-| **CI/CD + Monitoring** | ⏳ Planned | v0.5 |
+| **PostgreSQL 16** with RLS, pg_notify, pgmq | ✅ v0.1 | Foundation |
+| **Auth** via Keycloak (PKCE, JWT mappers) | ✅ v0.1 | Foundation |
+| **API Gateway** (Bun + Fastify, JWT verify) | ✅ v0.1 | Foundation |
+| **Realtime subscriptions** (WebSocket + Valkey) | ✅ v0.2 | Data Layer |
+| **File storage** (RustFS S3-compatible) | ✅ v0.2 | Data Layer |
+| **Background workers** (Webhook, Scheduler, Audit) | ✅ v0.2 | Data Layer |
+| **Admin Dashboard** (Next.js) | ✅ v0.3 | Frontend+SDK |
+| **Flutter SDK** (Mobile client) | ✅ v0.3 | Frontend+SDK |
+| **Function Runner** (DinD secure sandbox) | ✅ v0.4 | Compute |
+| **CI/CD + Monitoring** | ✅ v0.5 | DX & Polish |
+
+---
+
+## 🚀 Quick Start — 5 Minutes
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/) v2.20+
+- Git
+
+### 1. Clone & Configure
+
+```bash
+git clone https://github.com/Skndan/forge.git
+cd forge
+cp .env.example .env
+# Edit .env if you want custom passwords/ports
+```
+
+### 2. Start All Services
+
+```bash
+docker compose up -d
+```
+
+This starts the full stack (15 services):
+- Gateway API on `http://localhost:3000`
+- Keycloak Auth on `http://localhost:8080`
+- Admin Dashboard on `http://localhost:3003`
+- Prometheus on `http://localhost:9090`
+- Grafana on `http://localhost:3004` (admin/admin)
+
+### 3. Verify
+
+```bash
+# Check all services are healthy
+curl http://localhost:3000/v1/health
+
+# Should return: {"success":true,"status":"healthy"}
+```
+
+### 4. Use the API
+
+```bash
+# Get a token (via Keycloak)
+TOKEN=$(curl -s -X POST http://localhost:8080/realms/forge/protocol/openid-connect/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "client_id=forge-api" \
+  -d "client_secret=CHANGE_ME" \
+  -d "grant_type=password" \
+  -d "username=admin" \
+  -d "password=admin" | jq -r '.access_token')
+
+# Query the database
+curl -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST http://localhost:3000/v1/db/query \
+  -d '{"query": "SELECT * FROM forge.tenants"}'
+```
+
+That's it! You have a fully-functional BaaS running locally.
 
 ---
 
@@ -54,11 +117,52 @@
               │  PostgreSQL 16   │
               │  + RustFS (S3)   │
               └─────────────────┘
+
+
+        ┌────────────────────────────────────────┐
+        │        Monitoring & Observability       │
+        │  ┌──────────┐  ┌────────┐  ┌────────┐  │
+        │  │Prometheus│  │Grafana │  │Postgres│  │
+        │  │:9090     │  │:3004   │  │Exporter│  │
+        │  └──────────┘  └────────┘  └────────┘  │
+        └────────────────────────────────────────┘
 ```
+
+### Service Overview
+
+| Service | Tech | Port | Role |
+|---|---|---|---|
+| **gateway** | Bun + Fastify | 3000 | API gateway, auth, routing |
+| **realtime** | Bun + WS | 3001 | WebSocket subscriptions |
+| **worker-webhook** | Bun | — | Webhook delivery with retry |
+| **worker-scheduler** | Bun | — | Cron-based triggers |
+| **worker-audit** | Bun | — | Audit log writer |
+| **function-runner** | Bun + DinD | 3002 | Serverless functions |
+| **dashboard** | Next.js | 3003 | Admin UI |
+| **postgres** | PostgreSQL 16 | 5432 | Primary database |
+| **keycloak** | Keycloak 24 | 8080 | Identity & auth |
+| **rustfs** | RustFS | 9000 | S3-compatible storage |
+| **valkey** | Valkey 7.2 | 6379 | Pub/sub + caching |
+| **prometheus** | Prometheus | 9090 | Metrics collection |
+| **grafana** | Grafana | 3004 | Dashboards & viz |
+| **postgres-exporter** | Prometheus community | 9187 | PG metrics |
+| **valkey-exporter** | Redis exporter | 9121 | Valkey metrics |
 
 ---
 
-## 🚀 Quick Start
+## 📚 Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture Guide](docs/architecture/README.md) | Service architecture, data flow, sequence diagrams |
+| [API Reference](docs/api/README.md) | Full API reference with request/response examples |
+| [Deployment Guide](docs/deployment/README.md) | Self-hosting, production configs, scaling |
+| [Flutter SDK](docs/flutter-sdk/README.md) | SDK reference, installation, code examples |
+| [Example Apps](examples/) | Todo app, chat app, file gallery |
+
+---
+
+## 🧪 Testing
 
 ### Prerequisites
 
@@ -75,7 +179,6 @@
 ```bash
 git clone https://github.com/Skndan/forge.git
 cd forge
-pnpm install
 cp .env.example .env
 ```
 
@@ -92,7 +195,7 @@ Edit `.env` and set these required values:
 docker compose up -d postgres keycloak rustfs valkey
 
 # Start all services in dev mode with hot-reload
-pnpm dev
+bun dev
 ```
 
 ### Run (Production)
@@ -117,143 +220,112 @@ docker compose up -d
 | **Realtime WS** | `ws://localhost:3001` | WebSocket |
 | **Dashboard** | http://localhost:3003 | Admin UI |
 | **Healthcheck** | http://localhost:3000/v1/health | API status |
+| **Prometheus** | http://localhost:9090 | Metrics |
+| **Grafana** | http://localhost:3004 | Dashboards (admin/admin) |
 
 ---
 
 ## 🧪 Testing
 
-### Run all tests
-
 ```bash
-pnpm test
-```
+# Run all unit tests
+bun test
 
-### Run tests for a specific package
-
-```bash
-# Gateway
-pnpm --filter @forge/gateway test
-
-# Realtime
-pnpm --filter @forge/realtime test
-
-# Storage
-pnpm --filter @forge/storage test
-
-# Workers
-pnpm --filter @forge/worker-webhook test
-pnpm --filter @forge/worker-scheduler test
-pnpm --filter @forge/worker-audit test
-
-# Dashboard
-pnpm --filter @forge/dashboard test
-```
-
-### End-to-end test
-
-```bash
-# Ensure all services are running first
-./scripts/e2e-test.sh
-```
-
-### Watch mode (development)
-
-```bash
-pnpm --filter @forge/gateway test -- --watch
-```
-
-### Makefile (alternative)
-
-```bash
-make test         # all tests
-make test-e2e     # e2e tests
-make test-gateway # gateway tests
-make lint         # lint check
-make typecheck    # TypeScript check
+# Run integration tests (requires Docker Compose stack)
+./scripts/integration-test.sh
 ```
 
 ---
 
-## 💻 Local Development Workflow
+## 📊 Monitoring
+
+Forge ships with pre-configured monitoring:
+
+- **Prometheus** at `http://localhost:9090` — collects metrics from all services
+- **Grafana** at `http://localhost:3004` (admin/admin) — pre-built Forge dashboard
+- **Structured JSON logging** — all services log JSON with correlation IDs
+- **Health checks** — comprehensive per-service health endpoints
+- **Error tracking** — centralized error collection with webhook support
+
+### Quick Monitoring
 
 ```bash
-# Terminal 1: Docker services
-make up
+# Health check
+curl http://localhost:3000/v1/health
 
-# Terminal 2: Services with hot-reload
-make dev
+# Prometheus metrics
+curl http://localhost:3000/metrics
 
-# Terminal 3: Tests in watch mode
-make test-watch
-
-# Before committing
-make lint
-make typecheck
+# Grafana dashboard (browser)
+open http://localhost:3004
 ```
 
-> For complete details on every command, see [DEVELOPMENT.md](./DEVELOPMENT.md).
-
 ---
 
-## 📦 Packages
+## 🐳 Docker Images
 
-| Package | Tech | Description |
-|---|---|---|
-| `packages/gateway` | Bun + Fastify | API gateway, JWT auth, route handlers |
-| `packages/database` | SQL | Migrations, RLS, triggers, pgmq |
-| `packages/auth` | Keycloak | Realm config, clients, JWT mappers |
-| `packages/realtime` | Bun + WS | WebSocket subscriptions, Valkey pub/sub |
-| `packages/storage` | Bun | RustFS integration, presigned URLs |
-| `packages/worker-webhook` | Bun | Webhook delivery with retry + HMAC |
-| `packages/worker-scheduler` | Bun | Cron-based function triggers |
-| `packages/worker-audit` | Bun | Audit log writer |
-| `packages/dashboard` | Next.js | Admin UI (table browser, auth manager) |
-| `packages/flutter-sdk` | Dart | Mobile client SDK |
-| `packages/function-runner` | Bun + DinD | Serverless function execution |
-| `packages/types` | TypeScript | Shared type definitions |
+Pre-built Docker images are available on GitHub Container Registry:
 
----
-
-## 🗺️ Roadmap
-
-| Release | Focus | Status |
-|---|---|---|
-| **v0.1 — Foundation** 🏗️ | Scaffold · Database · Auth · Gateway | ✅ **Done** |
-| **v0.2 — Data Layer** 📡 | Realtime · Storage · Workers | ✅ **Done** |
-| **v0.3 — Frontend + SDK** 🎨 | Dashboard · Flutter SDK | ⏳ Planned |
-| **v0.4 — Compute** ⚡ | Function Runner (DinD) | ⏳ Planned |
-| **v0.5 — DX & Polish** ✨ | CI/CD · Docs · Monitoring | ⏳ Planned |
-
-See [ROADMAP.md](./ROADMAP.md) for full details + architecture diagrams.
+```bash
+docker pull ghcr.io/skndan/forge/gateway:latest
+docker pull ghcr.io/skndan/forge/realtime:latest
+docker pull ghcr.io/skndan/forge/function-runner:latest
+docker pull ghcr.io/skndan/forge/worker-webhook:latest
+docker pull ghcr.io/skndan/forge/worker-scheduler:latest
+docker pull ghcr.io/skndan/forge/worker-audit:latest
+docker pull ghcr.io/skndan/forge/dashboard:latest
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
+| Category | Technology |
 |---|---|
-| Runtime | Bun, Next.js, Flutter |
-| Database | PostgreSQL 16 + RLS + pgmq |
-| Auth | Keycloak (PKCE, JWT) |
-| Realtime | WebSocket + Valkey pub/sub |
+| Runtime | Bun 1.x, Node.js 20 |
+| Framework | Fastify, Next.js 14 |
+| Database | PostgreSQL 16 |
+| Auth | Keycloak 24 (OIDC/PKCE) |
 | Storage | RustFS (S3-compatible) |
-| Functions | Docker-in-Docker |
-| Infrastructure | Docker Compose |
+| Pub/Sub | Valkey 7.2 (Redis-compatible) |
+| Monitoring | Prometheus, Grafana |
+| Language | TypeScript, Dart (Flutter SDK) |
+| Tooling | Turborepo, Docker Compose |
 
 ---
 
-## 📊 Project Board
+## 📋 Releases
 
-Track progress and view all tasks on the **[Forge Project Board](https://github.com/orgs/Skndan/projects/2)**.
+| Release | Features | Status |
+|---|---|---|
+| [v0.1](https://github.com/Skndan/forge/releases/tag/v0.1) | Foundation — Scaffold, DB, Auth, Gateway | ✅ |
+| [v0.2](https://github.com/Skndan/forge/releases/tag/v0.2) | Data Layer — Realtime, Storage, Workers | ✅ |
+| [v0.3](https://github.com/Skndan/forge/releases/tag/v0.3) | Frontend+SDK — Dashboard, Flutter SDK | ✅ |
+| [v0.4](https://github.com/Skndan/forge/releases/tag/v0.4) | Compute — Function Runner (DinD) | ✅ |
+| [v0.5](https://github.com/Skndan/forge/releases/tag/v0.5) | DX & Polish — CI/CD, Docs, Monitoring | ✅ |
 
 ---
 
 ## 🤝 Contributing
 
-This is early-stage and moving fast. Check the [issues](https://github.com/Skndan/forge/issues) for active work items.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/amazing`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
+4. Push (`git push origin feat/amazing`)
+5. Open a Pull Request
+
+See the [project board](https://github.com/orgs/Skndan/projects/2) for planned features.
 
 ---
 
 ## 📄 License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🔗 Links
+
+- **Repository:** [github.com/Skndan/forge](https://github.com/Skndan/forge)
+- **Issues:** [github.com/Skndan/forge/issues](https://github.com/Skndan/forge/issues)
+- **Project Board:** [github.com/orgs/Skndan/projects/2](https://github.com/orgs/Skndan/projects/2)

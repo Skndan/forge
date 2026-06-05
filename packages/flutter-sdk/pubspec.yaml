@@ -1,0 +1,25 @@
+name: forge_flutter_sdk
+description: Forge BaaS Flutter SDK — Auth, Database, Storage, Functions, and Realtime
+version: 0.3.0
+homepage: https://github.com/Skndan/forge
+
+environment:
+  sdk: ">=3.2.0 <4.0.0"
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_appauth: ^6.1.0
+  flutter_secure_storage: ^9.0.0
+  dio: ^5.4.0
+  web_socket_channel: ^2.4.0
+  json_annotation: ^4.8.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.0
+  json_serializable: ^6.7.0
+  mockito: ^5.4.0
+  flutter_lints: ^3.0.0

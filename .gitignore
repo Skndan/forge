@@ -7,12 +7,12 @@ coverage/
 .next/
 .turbo/
 backlog/
+
+# Agent workspace config
 AGENTS.md
-CHANGELOG.md
 HEARTBEAT.md
 IDENTITY.md
 SOUL.md
 TOOLS.md
 USER.md
 plan.md
-v0.1-DONE.md
