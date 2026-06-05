@@ -6,7 +6,6 @@
 // (via valkey pub/sub) and batch insertion.
 
 import { insertLogBatch } from './db.js';
-import { config } from './config.js';
 
 export interface LogEntry {
   function_id: string;

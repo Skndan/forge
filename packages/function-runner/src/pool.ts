@@ -230,7 +230,7 @@ CMD ["sleep", "infinity"]
       tenantFunctions.set(entry.tenantId, list);
     }
 
-    for (const [tenantId, functions] of tenantFunctions) {
+    for (const [, functions] of tenantFunctions) {
       if (functions.length <= config.warmPool.maxPerTenant) continue;
 
       // Sort by last used (oldest first) and evict excess

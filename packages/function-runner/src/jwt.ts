@@ -133,7 +133,7 @@ export function validateScope(
  * Generate a default scoped payload for functions without explicit permissions.
  * This grants broad but tenant-scoped access.
  */
-export function defaultScope(params: {
+export function defaultScope(_params: {
   invocationId: string;
   functionId: string;
   tenantId: string;

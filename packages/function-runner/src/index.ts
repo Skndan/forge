@@ -19,11 +19,10 @@
 //   POST   /invoke              — Quick invoke (used by gateway proxy)
 
 import { config } from './config.js';
-import { getDb } from './db.js';
-import { cleanExpiredLogs as cleanLogs } from './db.js';
+import { getDb, cleanExpiredLogs } from './db.js';
 import { getLogCollector } from './logs.js';
 import { getWarmPool } from './pool.js';
-import { getSandbox, resetSandbox } from './sandbox.js';
+import { resetSandbox } from './sandbox.js';
 import { executeFunction } from './executor.js';
 import { handleDeploymentRequest } from './deployment.js';
 
@@ -175,7 +174,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (path === '/health' || path === '/v1/health') {
     response = await handleHealth();
   } else if (path === '/invoke' && request.method === 'POST') {
-    response = await handleQuickInvoke();
+    response = await handleQuickInvoke(request);
   } else {
     response = await handleDeploymentRequest(request);
   }
@@ -221,11 +220,10 @@ async function main(): Promise<void> {
   console.log('[FunctionRunner] Log cleanup scheduled (every 24h)');
 
   // Start server
-  const server = Bun.serve({
+  Bun.serve({
     port: config.port,
     fetch: handleRequest,
   });
-  _server = server;
 
   console.log(`[FunctionRunner] Server listening on :${config.port}`);
 
@@ -253,7 +251,6 @@ async function main(): Promise<void> {
 // Health check export for Docker health checks
 export { handleHealth };
 
-let _server: { stop: () => void } | null = null;
 
 // Start
 main().catch((err) => {

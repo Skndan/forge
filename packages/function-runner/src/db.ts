@@ -301,7 +301,7 @@ export async function createInvocation(
       ${sql(functionId)}::uuid,
       ${sql(tenantId)}::uuid,
       'pending',
-      ${sql.json(payload as Record<string, unknown>)}
+      ${JSON.stringify(payload)}::jsonb
     )
     RETURNING id, function_id, tenant_id, status, input_payload, output_payload, error_message, duration_ms, created_at, completed_at
   `;
@@ -316,7 +316,7 @@ export async function completeInvocation(
   const sql = getDb();
   await sql`
     UPDATE forge.function_invocations
-    SET status = 'completed', output_payload = ${sql.json(output as Record<string, unknown>)}, duration_ms = ${durationMs}, completed_at = now()
+    SET status = 'completed', output_payload = ${JSON.stringify(output)}::jsonb, duration_ms = ${durationMs}, completed_at = now()
     WHERE id = ${sql(invocationId)}::uuid
   `;
 }
