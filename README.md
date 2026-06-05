@@ -15,9 +15,9 @@
 | **PostgreSQL 16** with RLS, pg_notify, pgmq | ✅ Done | v0.1 |
 | **Auth** via Keycloak (PKCE, JWT mappers) | ✅ Done | v0.1 |
 | **API Gateway** (Bun + Fastify, JWT verify) | ✅ Done | v0.1 |
-| **Realtime subscriptions** (WebSocket + Valkey) | 🚧 In Progress | v0.2 |
-| **File storage** (RustFS S3-compatible) | 🚧 In Progress | v0.2 |
-| **Background workers** (Webhook, Scheduler, Audit) | 🚧 In Progress | v0.2 |
+| **Realtime subscriptions** (WebSocket + Valkey) | ✅ Done | v0.2 |
+| **File storage** (RustFS S3-compatible) | ✅ Done | v0.2 |
+| **Background workers** (Webhook, Scheduler, Audit) | ✅ Done | v0.2 |
 | **Admin Dashboard** (Next.js) | ⏳ Planned | v0.3 |
 | **Flutter SDK** (Mobile client) | ⏳ Planned | v0.3 |
 | **Function Runner** (DinD secure sandbox) | ⏳ Planned | v0.4 |
@@ -103,7 +103,7 @@ docker compose up -d
 | Release | Focus | Status |
 |---|---|---|
 | **v0.1 — Foundation** 🏗️ | Scaffold · Database · Auth · Gateway | ✅ **Done** |
-| **v0.2 — Data Layer** 📡 | Realtime · Storage · Workers | 🚧 **In Progress** |
+| **v0.2 — Data Layer** 📡 | Realtime · Storage · Workers | ✅ **Done** |
 | **v0.3 — Frontend + SDK** 🎨 | Dashboard · Flutter SDK | ⏳ Planned |
 | **v0.4 — Compute** ⚡ | Function Runner (DinD) | ⏳ Planned |
 | **v0.5 — DX & Polish** ✨ | CI/CD · Docs · Monitoring | ⏳ Planned |
