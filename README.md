@@ -64,18 +64,27 @@
 git clone https://github.com/Skndan/forge.git
 cd forge
 
+# Install dependencies
+pnpm install
+
 # Copy environment config
 cp .env.example .env
 
-# Start all services
+# Start infrastructure (Postgres, Keycloak, RustFS, Valkey)
 docker compose up -d
 
-# Gateway runs on http://localhost:3030
-# Keycloak runs on http://localhost:8080
-# Healthcheck: http://localhost:3030/v1/health
+# Run all services in dev mode (hot-reload)
+pnpm dev
 ```
 
-> **Prerequisites:** Docker & Docker Compose
+- **Gateway API:** http://localhost:3000
+- **Admin Dashboard:** http://localhost:3003
+- **Keycloak Admin:** http://localhost:8080 (admin:changeme)
+- **Healthcheck:** http://localhost:3000/v1/health
+
+> **Prerequisites:** Node.js >= 20, pnpm >= 9, Bun >= 1.1, Docker >= 24
+
+📖 See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for detailed local setup, Makefile commands, testing, and troubleshooting.
 
 ---
 
