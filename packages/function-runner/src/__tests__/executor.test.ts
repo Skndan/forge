@@ -41,6 +41,7 @@ mock.module('../db', () => ({
   completeInvocation: async () => {},
   failInvocation: async () => {},
   timeoutInvocation: async () => {},
+  insertLogBatch: async () => {},
 }));
 
 // Mock sandbox

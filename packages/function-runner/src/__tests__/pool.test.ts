@@ -90,14 +90,16 @@ describe('WarmFunctionPool', () => {
     expect(pool.size).toBe(0);
   });
 
-  test('tracks eviction stats', async () => {
+  test("tracks eviction stats", async () => {
     await pool.warmFunction(mockFuncDef);
+    expect(pool.isWarm(mockFuncDef.id)).toBe(true);
     await pool.evict(mockFuncDef.id);
+    expect(pool.isWarm(mockFuncDef.id)).toBe(false);
 
     const stats = pool.getStats();
     expect(stats.evictions).toBe(1);
-    expect(stats.hits).toBe(0);
-    expect(stats.misses).toBeGreaterThan(0); // isWarm after evict was a miss
+    expect(stats.hits).toBe(1);
+    expect(stats.misses).toBe(1);
   });
 
   test('enforces per-tenant limits', async () => {
